@@ -4,6 +4,8 @@
 #include "fatfs/ff.h"
 #include "screen_init.h"
 
+#define PAYLOAD_ADDRESS		0x23F00000
+#define PAYLOAD_SIZE		0x00100000
 #define BOOTLOADER_PAYLOAD_ADDRESS	0x24F00000
 #define BOOTLOADER_PAYLOAD_SIZE		0x00100000
 #define A11_PAYLOAD_LOC     0x1FFF4C80  //keep in mind this needs to be changed in the ld script for screen_init too
@@ -14,7 +16,7 @@ extern u32 screen_init_bin_size;
 
 void ownArm11()
 {
-    memcpy((void*)A11_PAYLOAD_LOC, screen_init_bin, screen_init_bin_size);
+	memcpy((void*)A11_PAYLOAD_LOC, screen_init_bin, screen_init_bin_size);
 	*((u32*)0x1FFAED80) = 0xE51FF004;
 	*((u32*)0x1FFAED84) = A11_PAYLOAD_LOC;
 	for(int i = 0; i < 0x80000; i++)
@@ -62,9 +64,17 @@ int main()
 		{
 			f_read(&payload, BOOTLOADER_PAYLOAD_ADDRESS, BOOTLOADER_PAYLOAD_SIZE, &br);
 			ownArm11();
-            screenInit();
-            clearScreen();
+			screenInit();
+			clearScreen();
 			((void (*)())BOOTLOADER_PAYLOAD_ADDRESS)();
+		}
+		else if (f_open(&payload, "arm9loaderhax.bin", FA_READ | FA_OPEN_EXISTING) == FR_OK)
+		{
+			f_read(&payload, PAYLOAD_ADDRESS, PAYLOAD_SIZE, &br);
+			ownArm11();
+			screenInit();
+			clearScreen();
+			((void (*)())PAYLOAD_ADDRESS)();
 		}
 	}
 	
