@@ -18,9 +18,9 @@ include $(DEVKITARM)/ds_rules
 #---------------------------------------------------------------------------------
 TARGET 		:=  $(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source source/fatfs
+SOURCES		:=	source ../libs/fatfs ../libs/i2c ../libs/fatfs/sdmmc
 DATA		:=	data
-INCLUDES	:=	include source source/fatfs
+INCLUDES	:=	include source ../libs/fatfs ../libs/i2c ../libs/fatfs/sdmmc
 
 #---------------------------------------------------------------------------------
 # Setup some defines
@@ -31,7 +31,7 @@ INCLUDES	:=	include source source/fatfs
 #---------------------------------------------------------------------------------
 ARCH	:=	-mthumb -mthumb-interwork
 
-CFLAGS	:=	-g -Wall -O2\
+CFLAGS	:=	-g -Wall -Wno-unused-function -O2\
 			-march=armv5te -mtune=arm946e-s -fomit-frame-pointer\
 			-ffast-math -std=c11\
 			$(ARCH)
@@ -40,7 +40,7 @@ CFLAGS	+=	$(INCLUDE)
 
 CXXFLAGS	:= $(CFLAGS) -fno-rtti -fno-exceptions
 
-ASFLAGS	:=	-g $(ARCH) 
+ASFLAGS	:=	-g $(ARCH)
 LDFLAGS	=	-nostartfiles -g $(ARCH) -Wl,-Map,$(TARGET).map
 
 LDFLAGS += --specs=../../common/payload_stage2.specs
@@ -62,6 +62,7 @@ ifneq ($(BUILD),$(notdir $(CURDIR)))
 #---------------------------------------------------------------------------------
 
 export OUTPUT	:=	$(CURDIR)/$(TARGET)
+export DATA     :=      data
 
 export VPATH	:=	$(foreach dir,$(SOURCES),$(CURDIR)/$(dir)) \
 			$(foreach dir,$(DATA),$(CURDIR)/$(dir))
@@ -104,12 +105,13 @@ all: $(BUILD)
 $(BUILD):
 	@[ -d $(OUTPUT_D) ] || mkdir -p $(OUTPUT_D)
 	@[ -d $(BUILD) ] || mkdir -p $(BUILD)
+	@[ -d $(DATA) ] || mkdir -p $(DATA)
 	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
-		
+
 #---------------------------------------------------------------------------------
 clean:
 	@echo clean ...
-	@rm -fr $(BUILD) $(OUTPUT).bin
+	@rm -fr $(DATA) $(BUILD) $(OUTPUT).elf $(OUTPUT).bin
 
 #---------------------------------------------------------------------------------
 else
@@ -126,7 +128,6 @@ $(OUTPUT).elf	:	$(OFILES)
 %.bin: %.elf
 	@$(OBJCOPY) --set-section-flags .bss=alloc,load,contents -O binary $< $@
 	@echo built ... $(notdir $@)
-	@rm -f $(OUTPUT).elf
 
 #---------------------------------------------------------------------------------
 # you need a rule like this for each extension you use as binary data

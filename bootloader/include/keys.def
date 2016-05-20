@@ -1,0 +1,16 @@
+// https://github.com/smealum/ctrulib/blob/master/libctru/include/3ds/services/hid.h#L5
+KEY(A)
+KEY(B)
+KEY(SELECT)
+KEY(START)
+KEY(R)
+KEY(L)
+KEY(X)
+KEY(Y)
+// D-PAD
+KEY(DRIGHT)
+KEY(DLEFT)
+KEY(DUP)
+KEY(DDOWN)
+#undef KEY
+// vim: filetype=c
