@@ -13,7 +13,14 @@ int myAtoi(const char *str)
     	startvalue=1;
     }
     for (int i = startvalue; str[i] != '\0'; ++i)
-        res = res*10 + str[i] - '0';
+    {
+        if(str[i] >= '0' && str[i] <= '9')
+        {
+            res = res*10 + str[i] - '0';
+        }
+        else
+            break;
+    } 
   
   	if(isnegativ)
   		res*=-1;

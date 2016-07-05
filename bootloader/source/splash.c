@@ -8,6 +8,7 @@
 #include "hid.h"
 #include "timer.h"
 #include "quicklz.h"
+#include "convert.h"
 
 #include "screen.h"
 #include "../../arm11bg/source/arm11bg/constants.h"
@@ -164,21 +165,50 @@ int splash_anim(char *splash_path)
     
     size_t comp_size = 0;  
 
-
+    // trying to use a plaintext .cfg configuration
     sprintf(frameRateConfigurationPath,"%s.cfg",splash_path);
     frameRateConfigurationFileSize=getFileSize(frameRateConfigurationPath);
     if(frameRateConfigurationFileSize)
     {
         f_open(&FrameRateConfigurationFile, frameRateConfigurationPath, FA_READ);
-        f_read(&FrameRateConfigurationFile, &frameRate, 1, &br);
+        char framerateString[3]={0};
+        char animationCompressionString[4]={0};
+        f_read(&FrameRateConfigurationFile, &framerateString, 2, &br);
+        frameRate=myAtoi(framerateString);
 
-        if(frameRateConfigurationFileSize>1)
-            f_read(&FrameRateConfigurationFile, &isCompressionEnabled, 1, &br);
+        if(frameRateConfigurationFileSize>2)
+        {
+            f_read(&FrameRateConfigurationFile, &animationCompressionString, 3, &br);
+
+            if(br==3&&!strcmp("lzd", animationCompressionString))
+            {
+                isCompressionEnabled=true;
+            }
+        }
 
         f_close(&FrameRateConfigurationFile);
 
         if(!frameRate)
             frameRate=0x0F;
+    }
+    else
+    {   
+        // Trying to use a binary .cfgb configuration
+        sprintf(frameRateConfigurationPath,"%s.cfgb",splash_path);
+        frameRateConfigurationFileSize=getFileSize(frameRateConfigurationPath);
+        if(frameRateConfigurationFileSize)
+        {
+            f_open(&FrameRateConfigurationFile, frameRateConfigurationPath, FA_READ);
+            f_read(&FrameRateConfigurationFile, &frameRate, 1, &br);
+
+            if(frameRateConfigurationFileSize>1)
+                f_read(&FrameRateConfigurationFile, &isCompressionEnabled, 1, &br);
+
+            f_close(&FrameRateConfigurationFile);
+
+            if(!frameRate)
+                frameRate=0x0F;
+        }
     }
     
     f_open(&topScreenAnimationFile, splash_path, FA_READ);
