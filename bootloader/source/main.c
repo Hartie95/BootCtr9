@@ -10,18 +10,93 @@
 #include "constants.h"
 #include "payload.h"
 
+char latestSection[15]={0};
+
+int getTargetPayload(loaderConfiguration* loader, configuration* app,
+	FIL* configFile)
+{
+	// Check if arm9Companion support is enabled, the companion section defined and the payload available
+	if(loader->enableArm9ComapnionBoot)
+	{
+		app->section=COMPANION_SECTION;
+		readPayloadSection(app, configFile);
+		if (!checkPayload(app)) 
+		{
+	    	 return TARGET_ARM9_COMPANION;
+	    }
+	}
+
+	// Check if autoboot is enabled and currently softbooting
+	if(loader->enableAutosoftboot && !isColdboot())
+	{
+		FIL latestFile;
+		char latestFilePath[32]={0};
+		unsigned int br=0;
+
+		debug("Opening %s file",LASTEST_SECTION_FILE);
+		checkFolders(LASTEST_SECTION_FILE, latestFilePath);
+
+		if(f_open(&latestFile, latestFilePath, FA_READ) == FR_OK)
+		{
+			br=0;
+		    debug("it's softreboot, read %s",LASTEST_SECTION_FILE);
+			f_gets(latestSection, 15, &latestFile);
+			br=strlen(latestSection);
+			app->section=latestSection;
+			f_close(&latestFile);
+			if(br>4)
+			{
+				info("Latest Section: [%s]",app->section);
+				readPayloadSection(app, configFile);
+				if(!checkPayload(app)) 
+			    	return TARGET_AUTOBOOT;
+			}
+		}
+		info("Latest Section not found, falling back to key");
+	}
+
+	// Get section from key input if no companion or autoboot payload got loaded
+	info("Wait %llu ms for Input",loader->keyDelay);
+	u32 key = WaitTimeForInput(loader->keyDelay);
+
+    // using X-macros to generate each if else rule
+    // https://en.wikibooks.org/wiki/C_Programming/Preprocessor#X-Macros
+    #define KEY(k) \
+    if(key & KEY_##k) \
+        app->section = "KEY_"#k; \
+    else
+    #include "keys.def"
+        app->section = "DEFAULT";
+
+	info("Key checked-selected section: [%s]",app->section);
+
+	//Check if it's not a default payload boot and check for a bootpassword 
+	if(strcmp(app->section,"DEFAULT"))
+		if(!checkPassword(loader->bootPassword))
+        	app->section = "DEFAULT";
+
+	readPayloadSection(app, configFile);
+	if (checkPayload(app)) 
+	{
+    	debug("Trying to load the [DEFAULT] section");
+        app->section = "DEFAULT";
+        // don't need to check error again
+        readPayloadSection(app, configFile);
+        if (checkPayload(app))
+            panic("Failed to load the [DEFAULT] section");
+    }
+
+    return 0;
+}
 
 int main() {
 	FATFS fs;
 	FIL configFile;
-	FIL payload;
-	FIL latestFile;
-	char latestFilePath[32]={0};
-	char latestSection[15]={0};
-	unsigned int br=0;
+	int payloadSource = 0;
 
     loaderConfiguration loader =  {
 	        .section = LOADER_SECTION,
+	        .bootPassword = DEFAULT_BOOT_PASSWORD,
 	        .keyDelay = DEFAULT_KEYDELAY,
 	        .bootsplash = DEFAULT_BOOTSPLASH, 
             .bootsplash_image = DEFAULT_BOOTSPLASH_IMAGE,
@@ -47,125 +122,38 @@ int main() {
 	        .fixArm9Path = 0,
     };
 
-    setBrightness(0x44);
-	setScreenState(true);
-	debug("test");
-	f_mount(&fs, "0:", 0);
+    f_mount(&fs, "0:", 0);
 	
 	if(!openIniFile(&configFile))
 		panic("Config file not found.");
 
+	// Read and apply BootCTR9 configuration
 	iniparse(handlerLoaderConfiguration,&loader,&configFile);
 	initLog(loader.fileLog, loader.screenLog);
 	setBrightness(loader.screenBrightness);
 	setScreenState(loader.screenEnabled);
 
+	//show splash only with screen init
 	if(loader.screenEnabled)
 	{
 		drawBootSplash(&loader);
 	}
 
+	// Read Global Section for default Configurations
 	debug("Reading [GLOBAL] section");
-	iniparse(handler, &app,&configFile);
+	readPayloadSection(&app,&configFile);
 
-	if(loader.enableAutosoftboot)
+	payloadSource = getTargetPayload(&loader, &app, &configFile);
+
+	if(!loadPayload(&loader, &app, payloadSource))
 	{
-		if(!isColdboot())
-		{
-			debug("Opening %s file",LASTESTSETIONFILE);
-			checkFolders(LASTESTSETIONFILE, latestFilePath);
-
-			if (f_open(&latestFile, latestFilePath, FA_READ) == FR_OK)
-			{
-				br=0;
-			    debug("it's softreboot, read %s",LASTESTSETIONFILE);
-				f_gets(latestSection, 15, &latestFile);
-				br=strlen(latestSection);
-				app.section=latestSection;
-				f_close(&latestFile);
-				info("Latest Section: [%s]",app.section);
-			}
-		}
-	}
-
-	if(isColdboot() || !loader.enableAutosoftboot || br<=4)
-	{
-		info("Wait %llu ms for Input",loader.keyDelay);
-		u32 key = WaitTimeForInput(loader.keyDelay);
-
-	    // using X-macros to generate each switch-case rules
-	    // https://en.wikibooks.org/wiki/C_Programming/Preprocessor#X-Macros
-	    #define KEY(k) \
-	    if(key & KEY_##k) \
-	        app.section = "KEY_"#k; \
-	    else
-	    #include "keys.def"
-	        app.section = "DEFAULT";
-
-		info("Key checked-selected section: [%s]",app.section);
-	}
-
-	debug("Reading current section");
-	int config_err = iniparse(handler, &app, &configFile);
-
-	switch (config_err) {
-	    case 0:
-	        if (!strlen(app.path)) {
-	        	debug("Section not found, trying to load the [DEFAULT] section");
-	            app.section = "DEFAULT";
-	            // don't need to check error again
-	            iniparse(handler, &app, &configFile);
-	            if (!strlen(app.path))
-	                panic("Section [DEFAULT] not found or \"path\" not set.");
-	        }
-	        break;
-	    case -2:
-	        // should not happen, however better be safe than sorry
-	        panic("Config file is too big.");
-	        break;
-	    default:
-	        panic("Error found in config file, error code %i",config_err);
-	        break;
-	}
-
-	checkPayload(app);
-	drawSplash(&app);
-
-	info("Loading Payload: %s",app.path);
-	if(f_open(&payload, app.path, FA_READ | FA_OPEN_EXISTING) == FR_OK)
-	{
-		debug("Reading payload at offset %i",app.offset);
-		if(app.offset)
-			f_lseek (&payload, app.offset);
-		f_read(&payload, (void*)PAYLOAD_ADDRESS, PAYLOAD_SIZE, &br);
-		f_close(&payload);
-		debug("Finished reading the payload");
-
-		if(app.fixArm9Path)
-			patchPath(br, app.path);
-
-	    if(loader.enableAutosoftboot&&isColdboot())
-	    {
-	    	if(f_open(&latestFile, latestFilePath, FA_READ | FA_WRITE | FA_CREATE_ALWAYS )==FR_OK)
-	    	{
-		    	debug("Writing latest section to file: [%s]",app.section);
-				f_puts (app.section, &latestFile);
-				f_close(&latestFile);
-			}           
-		}
-
 		debug("Closing files and unmount sd");
 		f_close(&configFile);
 		closeLogFile();
 		f_mount(&fs, "0:", 1);
 
-		debug("Configuring and jumping to the payload");
-		setScreenState(app.screenEnabled);
-		setBrightness(app.screenBrightness);
-
-		((void (*)())PAYLOAD_ADDRESS)();
-		panic("Failed to jump to the Payload");
+		runPayload(&app);	
 	}
-	panic("Failed to mount the sd-card");
+	panic("Failed to mount the sd-card or laod the payload");
 	return 0;
 }

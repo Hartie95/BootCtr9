@@ -19,3 +19,5 @@ bool openIniFile(FIL* file);
 int iniparse(ini_handler handler, void* user, FIL* file);
 
 bool isColdboot();
+
+bool checkPassword(char* bootPassword);

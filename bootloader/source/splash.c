@@ -7,6 +7,7 @@
 #include "constants.h"
 #include "hid.h"
 #include "timer.h"
+#include "quicklz.h"
 
 #include "screen.h"
 #include "../../arm11bg/source/arm11bg/constants.h"
@@ -131,6 +132,16 @@ int splash_anim(char *splash_path)
     u32 frameRateConfigurationFileSize=0;
     char frameRateConfigurationPath[64]={0};
 
+    u8 isCompressionEnabled = false;
+    char* currentFrame = (char*) TMPSPLASHADDRESS;
+    char* lastFrame = (char*) TMPSPLASHADDRESS2;
+    char* tmpbufferCompressed = (char*) TMPSPLASHADDRESS3;
+
+    memset(lastFrame, 0, TOP_FB_SIZE); // Clear all buffers  
+    memset(currentFrame, 0, TOP_FB_SIZE);  
+    memset(tmpbufferCompressed, 0, TOP_FB_SIZE + 600);  
+
+
     if(!strlen(splash_path))
     {
         debug("Splash image not set, using default screen instead");
@@ -138,7 +149,7 @@ int splash_anim(char *splash_path)
     }
 
     topAnimationFileSize=getFileSize(splash_path);
-    if(topAnimationFileSize<TOP_FB_SIZE)
+    if(topAnimationFileSize < TOP_FB_SIZE)
     {
         debug("Bootanimation includes less than one Frame\n, using default screen instead");
         return -1;
@@ -148,19 +159,27 @@ int splash_anim(char *splash_path)
     FIL topScreenAnimationFile;
     unsigned int br;
 
+    qlz_state_decompress *state_decompress = (qlz_state_decompress*)0x24400000; 
+    memset(state_decompress, 0, sizeof(qlz_state_decompress));  
+    
+    size_t comp_size = 0;  
+
+
     sprintf(frameRateConfigurationPath,"%s.cfg",splash_path);
     frameRateConfigurationFileSize=getFileSize(frameRateConfigurationPath);
     if(frameRateConfigurationFileSize)
     {
         f_open(&FrameRateConfigurationFile, frameRateConfigurationPath, FA_READ);
         f_read(&FrameRateConfigurationFile, &frameRate, 1, &br);
+
+        if(frameRateConfigurationFileSize>1)
+            f_read(&FrameRateConfigurationFile, &isCompressionEnabled, 1, &br);
+
         f_close(&FrameRateConfigurationFile);
 
         if(!frameRate)
             frameRate=0x0F;
     }
-
-    u32 topScreenFrames=topAnimationFileSize / TOP_FB_SIZE;
     
     f_open(&topScreenAnimationFile, splash_path, FA_READ);
 
@@ -180,19 +199,59 @@ int splash_anim(char *splash_path)
     //starts timer and let it use the 1024 prescaler and the count up
     //more informations about the timer: https://www.3dbrew.org/wiki/TIMER_Registers#TIMER_CNT
     timerStart(0,PRESCALER_1024);
-    u32 frame = topScreenFrames;
-    while(frame--) 
+    u32 frame = 1;
+    while(1) 
     {   
         if (GetInput() == (KEY_SELECT|KEY_START))
             frame = 0;
 
-        //Read to temporary buffer , wait for the next frame and let arm11 write it to the Frame buffer to minimize Tearing
-        f_read(&topScreenAnimationFile, (void*)TMPSPLASHADDRESS, TOP_FB_SIZE, &br);
-        
+        if(isCompressionEnabled)
+        {
+            if(frame%2)
+            {
+                currentFrame = (char*) TMPSPLASHADDRESS;
+                lastFrame = (char*) TMPSPLASHADDRESS2;
+            }
+            else
+            {
+                currentFrame = (char*) TMPSPLASHADDRESS2;
+                lastFrame = (char*) TMPSPLASHADDRESS;
+            }
+            
+            if (f_read(&topScreenAnimationFile, (void*)tmpbufferCompressed, 9, &br) != FR_OK)  
+                break; 
+            if(br!=9)
+                break;
+
+
+            comp_size = qlz_size_compressed(tmpbufferCompressed);  
+   
+            f_read(&topScreenAnimationFile, (void*)(tmpbufferCompressed + 9), comp_size - 9, &br);  
+   
+            if (qlz_size_decompressed(tmpbufferCompressed) != TOP_FB_SIZE || br != (comp_size - 9))  
+                 break;  
+   
+            // Decompress the frame  
+            qlz_decompress(tmpbufferCompressed, currentFrame, state_decompress);  
+   
+            // Delta decoding  
+            for (u32 i = 0; i < TOP_FB_SIZE; i++)  
+                currentFrame[i] += lastFrame[i];    
+
+        }
+        else
+        {
+            //Read to temporary buffer , wait for the next frame and let arm11 write it to the Frame buffer to minimize Tearing
+            f_read(&topScreenAnimationFile, (void*)currentFrame, TOP_FB_SIZE, &br);
+            if (br < TOP_FB_SIZE) // If it couldn't read the entire frame... 
+                break;
+
+        }
         while(*timerValue<nextFrameTimerValue);
         *timerValue=0;
         
-        arm11_commands->fbTopLeft=TMPSPLASHADDRESS;
+        arm11_commands->fbTopLeft = (u32) currentFrame;
+        frame++;
 
     }
     timerStop(0);

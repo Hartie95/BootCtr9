@@ -18,9 +18,9 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 export TARGET		:=	$(shell basename $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source ../libs/fatfs source/inih ../libs/i2c ../libs/fatfs/sdmmc
+SOURCES		:=	source ../libs/fatfs source/inih ../libs/i2c ../libs/quicklz ../libs/fatfs/sdmmc
 DATA		:=	data
-INCLUDES	:=	include ../libs/fatfs source/inih ../libs/i2c ../libs/fatfs/sdmmc
+INCLUDES	:=	include ../libs/fatfs source/inih ../libs/i2c ../libs/quicklz ../libs/fatfs/sdmmc
 
 #---------------------------------------------------------------------------------
 # Setup some defines

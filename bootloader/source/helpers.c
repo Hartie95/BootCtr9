@@ -3,6 +3,7 @@
 #include "constants.h"
 #include "screen.h"
 #include "draw.h"
+#include "hid.h"
 
 /* File Helpers */
 
@@ -34,7 +35,7 @@ void getWorkingDirectory(char* str)
 	if(!workingDir[0])
 	{
 		debug("Checking for target workingDir");
-		char* supportedFolders[]={SUPPORTEDFOLDERS};
+		char* supportedFolders[]={SUPPORTED_FOLDERS};
 		char targetPath[64]={0};
 		u32 numberOfFolders=sizeof(supportedFolders)/sizeof(char*);
 		for(int i=0;i<numberOfFolders;i++)
@@ -76,7 +77,6 @@ void initScreen()
 {
 	if(screenInit())
 	{
-		clearScreens();
 		debug("Screens enabled");
 	}
 }
@@ -123,3 +123,62 @@ bool isColdboot()
 		return true;
 	return false;
 }
+
+bool checkPassword(char* bootPassword)
+{
+	int passwordSize=strlen(bootPassword);
+	
+	while(GetInput()!=0);
+	
+	//Check if a password is set
+	if(!passwordSize)
+		return true;
+
+	info("Please insert your password to load this payload");
+	char currentKey[10]={0};
+	char currentCharacter=0;
+	unsigned int currentPosition=0;
+	unsigned int currentKeyPosition=0;
+	do
+	{
+		currentCharacter=bootPassword[currentPosition];
+		if(currentCharacter!=' '&&currentCharacter)
+		{
+			currentKey[currentKeyPosition]=currentCharacter;
+			currentKeyPosition++;
+		}
+		else
+		{
+			currentKey[currentPosition]='\0';
+			u32 key = InputWait();
+			while(GetInput()!=0);
+
+		    // using X-macros to generate each switch-case rules
+		    // https://en.wikibooks.org/wiki/C_Programming/Preprocessor#X-Macros
+		    #define KEY(k) \
+		    if(!strcmp(currentKey, "KEY_"#k)) \
+		    { \
+		        if( key & KEY_##k) \
+		        {	\
+		        	info("please press the next key"); \
+		        } \
+		        else \
+		        { \
+		        	info("You pressed the wrong key %s , will load [DEFAULT] instead.","KEY_"#k); \
+		        	return false; \
+		        } \
+		    } \
+		    else
+		    #include "keys.def"
+		    {
+		    	debug("%s is not a valid key",currentKey);
+		    	return false;	
+		    }
+
+			currentKeyPosition=0;
+		}
+		currentPosition++;
+	}while(currentCharacter);
+	return true;
+}
+

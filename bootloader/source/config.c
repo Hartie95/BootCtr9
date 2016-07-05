@@ -1,90 +1,9 @@
 #include "config.h"
 
+#include "log.h"
+#include "helpers.h"
 
-int myAtoi(const char *str)
-{
-    int res = 0; // Initialize result
-  	int startvalue = 0;
-    // Iterate through all characters of input string and
-    // update result
-    bool isnegativ=false;
-    if(str[0]=='-')
-    {
-    	isnegativ=true;
-    	startvalue=1;
-    }
-    for (int i = startvalue; str[i] != '\0'; ++i)
-        res = res*10 + str[i] - '0';
-  
-  	if(isnegativ)
-  		res*=-1;
-    
-    return res;
-}
-int chartoint(int c)
-{
-    char hex[] = "aAbBcCdDeEfF";
-    int i;
-    int result = 0;
-
-    for(i = 0; result == 0 && hex[i] != '\0'; i++)
-    {
-        if(hex[i] == c)
-        {
-            result = 10 + (i / 2);
-        }
-    }
-
-    return result;
-}
-
-unsigned int htoi(const char s[])
-{
-    unsigned int result = 0;
-    int i = 0;
-    int temp;
-
-    //To take care of 0x and 0X added before the hex no.
-    if(s[i] == '0')
-    {
-        ++i;
-        if(s[i] == 'x' || s[i] == 'X')
-        {
-            ++i;
-        }
-    }
-
-    while(s[i] != '\0')
-    {
-        result = result * 16;
-        if(s[i] >= '0' && s[i] <= '9')
-        {
-            result = result + (s[i] - '0');
-        }
-        else
-        {
-            temp = chartoint(s[i]);
-            if(!temp)
-            {
-                //If any character is not a proper hex no. ,  return 0
-                return 0;
-            }
-            result = result + temp;
-        }
-
-        ++i;
-    }
-
-    return result;
-}
-
-int numberToInt(const char* value)
-{
-	if(value[0]=='0'&& (value[1]=='x'||value[1]=='X'))
-		return htoi(value);
-	else
-		return myAtoi(value);
-}
+#include "convert.h"
 
 int handler(void *user, const char *section, const char *name, const char *value)
 {
@@ -119,7 +38,9 @@ int handlerLoaderConfiguration(void *user, const char *section, const char *name
     loaderConfiguration *pconfig = (loaderConfiguration *) user;
     if (MATCH(pconfig->section, "key_delay")) {
         pconfig->keyDelay = myAtoi(value);
-    }else if (MATCH(pconfig->section, "boot_splash")) { 
+    } else if (MATCH(pconfig->section, "bootPassword")) {
+        strcpy (pconfig->bootPassword,value);
+    } else if (MATCH(pconfig->section, "boot_splash")) { 
         pconfig->bootsplash = myAtoi(value);
     } else if (MATCH(pconfig->section, "boot_splash_image")) { 
         strcpy (pconfig->bootsplash_image,value); 
@@ -127,6 +48,8 @@ int handlerLoaderConfiguration(void *user, const char *section, const char *name
         pconfig->enableSoftbootSplash = numberToInt(value);
     } else if (MATCH(pconfig->section, "enableAutosoftboot")) {
         pconfig->enableAutosoftboot = numberToInt(value);
+    } else if (MATCH(pconfig->section, "enableArm9CompanionBoot")) {
+        pconfig->enableArm9ComapnionBoot = numberToInt(value);
     } else if (MATCH(pconfig->section, "fileLog")) {
         pconfig->fileLog = myAtoi(value);
     } else if (MATCH(pconfig->section, "screenLog")) {
@@ -137,4 +60,23 @@ int handlerLoaderConfiguration(void *user, const char *section, const char *name
         pconfig->screenBrightness = numberToInt(value);
     }
     return 1;
+}
+
+int readPayloadSection(configuration* app, FIL* configFile)
+{
+    debug("Reading section %s",app->section);
+    int config_err = iniparse(handler, app, configFile);
+
+    switch (config_err) {
+        case 0:
+            break;
+        case -2:
+            // should not happen, however better be safe than sorry
+            panic("Config file is too big.");
+            break;
+        default:
+            panic("Error found in config file, error code %i",config_err);
+            break;
+    }
+    return config_err;
 }
