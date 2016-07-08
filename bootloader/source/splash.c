@@ -233,7 +233,7 @@ int splash_anim(char *splash_path)
     while(1) 
     {   
         if (GetInput() == (KEY_SELECT|KEY_START))
-            frame = 0;
+            break;
 
         if(isCompressionEnabled)
         {

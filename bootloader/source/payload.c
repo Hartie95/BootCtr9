@@ -95,6 +95,8 @@ int loadPayload(loaderConfiguration* loader, configuration* app, int payloadSour
 	// Write latest section to file on coldboot
     if(loader->enableAutosoftboot&&isColdboot())
     {
+    	checkFolders(LASTEST_SECTION_FILE, latestFilePath);
+
     	if(f_open(&latestFile, latestFilePath, FA_READ | FA_WRITE | FA_CREATE_ALWAYS )==FR_OK)
     	{
 	    	debug("Writing latest section to file: [%s]",app->section);

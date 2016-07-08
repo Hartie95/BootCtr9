@@ -128,11 +128,12 @@ bool checkPassword(char* bootPassword)
 {
 	int passwordSize=strlen(bootPassword);
 	
-	while(GetInput()!=0);
-	
 	//Check if a password is set
 	if(!passwordSize)
 		return true;
+
+	while(GetInput()!=0);
+	
 
 	info("Please insert your password to load this payload");
 	char currentKey[10]={0};
