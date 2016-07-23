@@ -3,6 +3,7 @@ CMakeLists.txt
 
 common/*.exe
 playload_installer/brahma2/data
+common/pack_tool
 
 # Output
 data_output
