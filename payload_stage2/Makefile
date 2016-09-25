@@ -18,9 +18,11 @@ include $(DEVKITARM)/ds_rules
 #---------------------------------------------------------------------------------
 TARGET 		:=  $(notdir $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source ../libs/fatfs ../libs/i2c ../libs/fatfs/sdmmc
+# SOURCES		:=	source ../libs/fatfs ../libs/i2c ../libs/fatfs/sdmmc
+SOURCES		:=	source source/fatfs
 DATA		:=	data
-INCLUDES	:=	include source ../libs/fatfs ../libs/i2c ../libs/fatfs/sdmmc
+INCLUDES	:=	include source source/fatfs
+#INCLUDES	:=	include source ../libs/fatfs ../libs/i2c ../libs/fatfs/sdmmc
 
 #---------------------------------------------------------------------------------
 # Setup some defines

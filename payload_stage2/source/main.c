@@ -1,7 +1,8 @@
 #include "common.h"
 #include "i2c.h"
-#include "ff.h"
+#include "fatfs/ff.h"
 #include "screen.h"
+#include "hid.h"
 #include "flush.h"
 
 #define BOOTLOADER_PAYLOAD_ADDRESS	0x24F00000
@@ -17,10 +18,9 @@ extern u32 arm11bg_bin_size;
 static inline void* copy_memory(void *dst, void *src, size_t amount)
 {
 	void *result = dst;
-	amount/=4;
 	while (amount--)
 	{
-		*((u32*)(dst++)) = *((u32*)(src++));
+		*((char*)(dst++)) = *((char*)(src++));
 	}
 	return result;
 }
@@ -44,10 +44,10 @@ void loadAndRunPayload(const char* payloadName, u32 payloadAddress)
 	u32 br;
 	if(f_open(&payload, payloadName, FA_READ | FA_OPEN_EXISTING) == FR_OK)
 	{
-		f_read(&payload, (void*)payloadAddress, PAYLOAD_SIZE, (UINT*)&br);
 		ownArm11();
 		turnOnBacklight();
-
+		setupDefaultFramebuffers();
+		f_read(&payload, (void*)payloadAddress, f_size(&payload), (UINT*)&br);
 		flush_all_caches();
 		((void (*)(void))payloadAddress)();
 	}

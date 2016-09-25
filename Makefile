@@ -62,7 +62,7 @@ arm9bootloader :
 
 installer:
 	@mkdir -p payload_installer/brahma2/data/
-	@cd payload_installer && make TARGET=../$(OUTDIR)/$(TARGET)
+	@cd payload_installer && make TARGET=../$(OUTDIR)/$(TARGET)_updater
 
 clean:
 	@echo clean...
