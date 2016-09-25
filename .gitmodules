@@ -1,0 +1,3 @@
+[submodule "payload_installer/brahma2/source/libkhax"]
+	path = payload_installer/brahma2/source/libkhax
+	url = https://github.com/Myriachan/libkhax.git
