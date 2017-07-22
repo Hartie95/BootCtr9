@@ -1,12 +1,12 @@
 /* Address to comunitcate with the arm11 thread */
 #define ARM11COMMAND_ADDRESS 0x1FFF3000
+#define ARM11LOADER_IDENTIFIER_ADDRESS 0x1FFF2FF0
 
 #define ARM11_THREAD_VERSION 0
 
 #define ARM11_COMMANDS typedef struct { \
 						    vu32 a11ControllValue; \
 						    vu32 a11threadRunning; \
-						    vu32 version; \
 						    vu32 brightness; \
 						    vu32 fbTopSelectedBuffer; \
 						    vu32 fbTopLeft; \
@@ -48,8 +48,13 @@
 
 #define MODE_MAIN 1
 #define MODE_DRAW 2
+#define MODE_COPY 3
 
-#define ARM11_DONE 0
-#define DISABLE_SCREEN 1
-#define ENABLE_SCREEN 2
-#define ENABLE_SCREEN_3D 3 //notImplemented
+#define ARM11_DONE 0x0
+#define DISABLE_SCREEN 0x1
+#define ENABLE_SCREEN 0x2
+#define ENABLE_SCREEN_FORCED 0x12
+#define ENABLE_SCREEN_3D 0x3 //notImplemented
+#define ENABLE_SCREEN_3D_FORCED 0x13 //notImplemented
+
+#define ARM9LOADERHAX_IDENTIFIER 0x00A91A91

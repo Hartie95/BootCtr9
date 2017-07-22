@@ -1,10 +1,8 @@
-
-/* Arm11 Background Thread */
-// This allows payloads to modifie screen states without the need to include the full screen init binary
-// screen init code by darksamus, AuroraWright and some others 
-// got code for disabeling from CakesForeveryWan
-// ITS NOT FINAL YET
-
+/*
+* Arm11 Background Thread by hartie95/hartmannaf
+* screen init code by darksamus, AuroraWright and some others
+* got code for disabeling from CakesForeveryWan
+*/
 
 #include "constants.h"
 #include "common.h"
@@ -13,11 +11,14 @@
 ARM11_COMMANDS
 
 volatile u32 *a11_entry = (volatile u32 *)0x1FFFFFF8;
+volatile u32 *a11_entry_firm = (volatile u32 *)0x1FFFFFFC;
+volatile u32 *loaderIdentifier = (volatile u32 *)ARM11LOADER_IDENTIFIER_ADDRESS;
 static volatile a11Commands* arm11commands=(volatile a11Commands*)ARM11COMMAND_ADDRESS;
 
 static inline void changeMode();
 static void mainMode();
 static inline void drawMode();
+static inline void copyMode();
 static inline void enable_lcd();
 static inline void disable_lcds(); 
 static inline void a11setBrightness();
@@ -37,19 +38,19 @@ static inline void setCurrentFramebufferAdresses()
 
     if(*(vu32*)FB_SELECTED_TOP&0x1)
     {
-        TOP_SCREENL_CAKE=FB_TOP_LEFT2;
-        TOP_SCREENR_CAKE=FB_TOP_RIGHT2;
+        TOP_SCREENL_CAKE=*(u32*)0x1040046C;
+        TOP_SCREENR_CAKE=*(u32*)0x10400498;
     }
     else
     {
-        TOP_SCREENL_CAKE=FB_TOP_LEFT;
-        TOP_SCREENR_CAKE=FB_TOP_RIGHT;
+        TOP_SCREENL_CAKE=*(u32*)0x10400468;
+        TOP_SCREENR_CAKE=*(u32*)0x10400494;
     }
 
     if(*(vu32*)FB_SELECTED_BOT&0x1)
-        BOT_SCREEN_CAKE=FB_BOTTOM2;
+        BOT_SCREEN_CAKE=*(u32*)0x1040056C;
     else
-        BOT_SCREEN_CAKE=FB_BOTTOM;
+        BOT_SCREEN_CAKE=*(u32*)0x10400568;
 }
 
 static inline void setDefaultFramebufferAdresses()
@@ -76,10 +77,10 @@ void __attribute__((naked)) a11Entry()
 
     /* Initialize the arm11 thread commands */
     *a11_entry = 0;
-    arm11commands->version=ARM11_THREAD_VERSION;
+    *a11_entry_firm = 0;
 
     /* if screen init was already done, get the addresses from memory */
-    if (*(u8*)0x10141200&0x1 != 0x1)
+    if (*(u8*)0x10141200 != 0x1 && *loaderIdentifier!=ARM9LOADERHAX_IDENTIFIER || *(u8*)0x10141200&0x1 != 0x1 && *loaderIdentifier==ARM9LOADERHAX_IDENTIFIER)
     {
         setCurrentFramebufferAdresses();
 
@@ -106,7 +107,7 @@ static void mainMode()
     arm11commands->mode=MODE_MAIN;
 
     /* Wait for arm11 entry and commands */
-    while (!*a11_entry)
+    while (!*a11_entry&& !*a11_entry_firm)
     {
         /* Check if the command buffer got overwritten */
         if(arm11commands->a11ControllValue==0xDEADBEEF)
@@ -119,13 +120,13 @@ static void mainMode()
                 {
                     if(arm11commands->fbTopSelectedBuffer&0x1)
                     {
-                        TOP_SCREENL_CAKE=FB_TOP_LEFT2;
-                        TOP_SCREENR_CAKE=FB_TOP_RIGHT2;
+                        TOP_SCREENL_CAKE=*(u32*)0x1040046C;
+                        TOP_SCREENR_CAKE=*(u32*)0x10400498;
                     }
                     else
                     {
-                        TOP_SCREENL_CAKE=FB_TOP_LEFT;
-                        TOP_SCREENR_CAKE=FB_TOP_RIGHT;
+                        TOP_SCREENL_CAKE=*(u32*)0x10400468;
+                        TOP_SCREENR_CAKE=*(u32*)0x10400494;
                     }
                     
                     *(vu32*)FB_SELECTED_TOP=arm11commands->fbTopSelectedBuffer&0x1;
@@ -133,10 +134,11 @@ static void mainMode()
                 }
                 if((*(vu32*)FB_SELECTED_BOT&0x1)^(arm11commands->fbBottomSelectedBuffer&0x1))
                 {
+
                     if(arm11commands->fbBottomSelectedBuffer&0x1)
-                        BOT_SCREEN_CAKE=FB_BOTTOM2;
+                        BOT_SCREEN_CAKE=*(u32*)0x1040056C;
                     else
-                        BOT_SCREEN_CAKE=FB_BOTTOM;
+                        BOT_SCREEN_CAKE=*(u32*)0x10400568;
 
                     *(vu32*)FB_SELECTED_BOT=arm11commands->fbBottomSelectedBuffer&0x1;
                 }
@@ -144,14 +146,14 @@ static void mainMode()
             if(arm11commands->setBrightness)
             {
                 a11setBrightness();
-
                 arm11commands->setBrightness=ARM11_DONE;
             }
             if(arm11commands->enableLCD)
             {
-                if(arm11commands->enableLCD==DISABLE_SCREEN)
+                u32 lcdComand = arm11commands->enableLCD;
+                if(lcdComand==DISABLE_SCREEN)
                     disable_lcds();
-                if(arm11commands->enableLCD==ENABLE_SCREEN)
+                if(lcdComand==ENABLE_SCREEN)
                     enable_lcd();
 
                 arm11commands->enableLCD=ARM11_DONE;
@@ -166,26 +168,31 @@ static void mainMode()
     /* Signalize the bg thread stops and jumps to an a11 entry */
     arm11commands->a11ControllValue=0;
     arm11commands->a11threadRunning=0;
-    ((void (*)())*a11_entry)(); 
+    if(*a11_entry_firm)
+        ((void (*)())*a11_entry_firm)();
+    else
+        ((void (*)())*a11_entry)();
 }
 
-static inline void changeMode()
+static void changeMode()
 {
-    switch(arm11commands->changeMode)
-    {
-        case MODE_DRAW:
-                drawMode();
-                break;
-        default:
-                break;
+        switch(arm11commands->changeMode)
+        {
+            case MODE_DRAW:
+                    drawMode();
+                    break;
+            case MODE_COPY:
+                    copyMode();
+                    break;
+            default:
+                    a11Entry();
+                    break;
 
-    }
-
-    a11Entry();
+        }
 }
 
 /* should be faster, because of the usage of u32 instead of u8 on a 32 bit prozessor*/ 
-static inline void fastmemcpy(u32* src, u32* target, u32 length)
+static inline void fastmemcpy(vu32* src, vu32* target, u32 length)
 {
     length/=4;
     while(length--)
@@ -203,17 +210,18 @@ static inline void drawMode()
     arm11commands->fbBottom=0;
     arm11commands->mode=MODE_DRAW;
     arm11commands->changeMode=ARM11_DONE;
-    u32 curentTopLeftBuffer=FB_TOP_LEFT;
-    u32 curentBottomBuffer=FB_BOTTOM;
+    u32 curentTopLeftBuffer=*(u32*)0x10400468;
+    u32 curentTopRightBuffer=*(u32*)0x10400494;
+    u32 curentBottomBuffer=*(u32*)0x10400568;
     while(!arm11commands->changeMode)
     {
         if(arm11commands->fbTopLeft)
         {
             //Select which buffer should be used for the next picture, based on the current selected Buffer
             if(*(vu32*)FB_SELECTED_TOP)
-                curentTopLeftBuffer=FB_TOP_LEFT;
+                curentTopLeftBuffer=*(u32*)0x10400468;
             else
-                curentTopLeftBuffer=FB_TOP_LEFT2;
+                curentTopLeftBuffer=*(u32*)0x1040046C;
 
             fastmemcpy((u32*)arm11commands->fbTopLeft,(u32*)curentTopLeftBuffer,SCREEN_SIZE);
             
@@ -222,18 +230,23 @@ static inline void drawMode()
 
             arm11commands->fbTopLeft=0;
         }
-        /*if(arm11commands->fbTopRigth!=0)
+        if(arm11commands->fbTopRigth!=0)
         {
-            fastmemcpy((u32*)arm11commands->fbTopRigth,(u32*)FB_TOP_RIGHT,SCREEN_SIZE);
+            if(*(vu32*)FB_SELECTED_TOP)
+                curentTopRightBuffer=*(u32*)0x10400494;
+            else
+                curentTopRightBuffer=*(u32*)0x10400498;
+
+            fastmemcpy((u32*)arm11commands->fbTopRigth,(u32*)curentTopRightBuffer,SCREEN_SIZE);
             arm11commands->fbTopRigth=0;
-        }*/
+        }
         if(arm11commands->fbBottom)
         {
             //Select which buffer should be used for the next picture, based on the current selected Buffer
             if(*(vu32*)FB_SELECTED_BOT)
-                curentBottomBuffer=FB_TOP_LEFT;
+                curentBottomBuffer=*(u32*)0x10400568;
             else
-                curentBottomBuffer=FB_TOP_LEFT2;
+                curentBottomBuffer=*(u32*)0x1040056C;
 
             fastmemcpy((u32*)arm11commands->fbBottom,(u32*)FB_BOTTOM,SCREEN_SIZE);
 
@@ -244,8 +257,57 @@ static inline void drawMode()
     }
     *(vu32*)FB_SELECTED_TOP=0;
     *(vu32*)FB_SELECTED_BOT=0;
-    setCurrentFramebufferAdresses();
+    //setCurrentFramebufferAdresses();
+    changeMode();
 }
+
+
+/* should be faster, because of the usage of u32 instead of u8 on a 32 bit prozessor*/
+static inline void fastmemcpyWithStatus(vu8* src, vu8* target, u32 length, vu32* status)
+{
+    u32 alignment= length%4;
+    length/=4;
+    while(length--)
+    {
+        *(vu32*)target=*(vu32*)src;
+        target+=sizeof(u32);
+        src+=sizeof(u32);
+        if(status)
+        {
+            *status = length*4+alignment;
+        }
+    }
+    while(alignment--){
+        *target=*src;
+        target++;
+        src++;
+        if(status)
+        {
+            *status = alignment;
+        }
+    }
+}
+
+static inline void copyMode()
+{
+    arm11commands->fbTopLeft=0;
+    arm11commands->fbTopRigth=0;
+    arm11commands->fbBottom=0;/*TODO start signal?*/
+    arm11commands->mode=MODE_COPY;
+    arm11commands->changeMode=ARM11_DONE;
+    while(!arm11commands->changeMode)
+    {
+        if(arm11commands->fbTopLeft&&arm11commands->fbTopRigth&&arm11commands->fbBottom>0)
+        {
+            fastmemcpyWithStatus((vu8*)arm11commands->fbTopLeft,(vu8*)arm11commands->fbTopRigth,arm11commands->fbBottom,&arm11commands->fbBottom);
+            arm11commands->fbTopLeft=0;
+            arm11commands->fbTopRigth=0;
+        }
+    }
+    //setCurrentFramebufferAdresses();
+    changeMode();
+}
+
 
 static inline void disable_lcds()  
 {  
@@ -389,4 +451,3 @@ static inline void a11setBrightness()
         *((volatile u32*)0x10202A40) = arm11commands->brightness;
     }
 } 
-

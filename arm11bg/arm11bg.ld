@@ -2,7 +2,7 @@ OUTPUT_ARCH(arm)
 ENTRY(a11Entry)
 SECTIONS
 {
-	. = 0x1FFF4C80;
+	. = 0x1FFF4000;
 	.text : {
 		*(.text.start)
 		*(.text)
