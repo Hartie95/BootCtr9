@@ -14,8 +14,7 @@
 /  f_unlink(), f_mkdir(), f_chmod(), f_rename(), f_truncate(), f_getfree()
 /  and optional writing functions as well. */
 
-
-#define _FS_MINIMIZE	0
+#define _FS_MINIMIZE	2
 /* This option defines minimization level to remove some basic API functions.
 /
 /   0: All basic functions are enabled.
@@ -70,7 +69,7 @@
 / Locale and Namespace Configurations
 /---------------------------------------------------------------------------*/
 
-#define _CODE_PAGE	437
+#define _CODE_PAGE	932
 /* This option specifies the OEM code page to be used on the target system.
 /  Incorrect setting of the code page can cause a file open failure.
 /
@@ -97,7 +96,6 @@
 /   949 - Korean (DBCS)
 /   950 - Traditional Chinese (DBCS)
 */
-
 
 #define	_USE_LFN	2
 #define	_MAX_LFN	255

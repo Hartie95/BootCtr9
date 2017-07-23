@@ -1,4 +1,3 @@
-#include "constants.h"
 #include <inttypes.h>
 
 #define u8 uint8_t
