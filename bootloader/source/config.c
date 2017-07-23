@@ -28,6 +28,8 @@ int handler(void *user, const char *section, const char *name, const char *value
         pconfig->screenBrightness = numberToInt(value);
     } else if (MATCH(pconfig->section, "enablePathFix")) {
         pconfig->fixArm9Path = numberToInt(value);
+    }else if (MATCH(pconfig->section, "keysPath")) {
+        strcpy (pconfig->keysPath,value);
     }
 
     return 1;
@@ -58,6 +60,10 @@ int handlerLoaderConfiguration(void *user, const char *section, const char *name
         pconfig->screenEnabled = myAtoi(value);
     } else if (MATCH(pconfig->section, "screenBrightness")) {
         pconfig->screenBrightness = numberToInt(value);
+    } else if (MATCH(pconfig->section, "deviceID")) {
+        pconfig->deviceID =numberToInt(value);
+    } else if (MATCH(pconfig->section, "CTCertPath")) {
+        strcpy (pconfig->CTCertPath,value);
     }
     return 1;
 }

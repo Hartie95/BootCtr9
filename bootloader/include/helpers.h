@@ -21,3 +21,8 @@ int iniparse(ini_handler handler, void* user, FIL* file);
 bool isColdboot();
 
 bool checkPassword(char* bootPassword);
+
+void copyDeviceID(u32 deviceID);
+
+void loadCTCert(char* path);
+void setupKeys();

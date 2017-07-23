@@ -10,3 +10,4 @@ void changeBrightness(u32 _brightness);
 void selectedFramebuffers(u8 topBuffer, u8 bottomBuffer);
 bool screenInit();
 void screenShutdown();
+void loadStub();

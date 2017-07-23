@@ -18,9 +18,11 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 export TARGET		:=	$(shell basename $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source ../../libs/i2c
+SOURCES		:=	source ../../libs/i2c ../../libs/cache
+#../../libs/fatfs/sdmmc ../../libs/fatfs
 DATA		:=	data
-INCLUDES	:=	include ../../libs/i2c
+INCLUDES	:=	include ../../libs/i2c ../../libs/firm ../../libs/cache
+#../../libs/fatfs/sdmmc ../../libs/fatfs
 
 #---------------------------------------------------------------------------------
 # Setup some defines
@@ -129,7 +131,12 @@ $(OUTPUT).elf	:	$(OFILES)
 #---------------------------------------------------------------------------------
 # you need a rule like this for each extension you use as binary data
 #---------------------------------------------------------------------------------
-%.bin.o	:	%.bin
+#%.bin.o	:	%.bin
+#---------------------------------------------------------------------------------
+#	@echo $(notdir $<)
+#	@$(bin2o)
+
+%.firm.o	:	%.firm
 #---------------------------------------------------------------------------------
 	@echo $(notdir $<)
 	@$(bin2o)

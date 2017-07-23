@@ -20,7 +20,7 @@ int initLog(bool _fileLoggingEnabled, bool _screenLoggingEnabled)
 	screenLoggingEnabled = _screenLoggingEnabled;
 	if(_fileLoggingEnabled)
 		openLogFile();
-    
+
     return 0;
 }
 

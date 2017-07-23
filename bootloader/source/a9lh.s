@@ -1,11 +1,10 @@
 .section .text.start
 .align 4
-.global _start
-_start:
-    @ Change the stack pointer
-    mov sp, #0x27000000
+.global inita9lh
+.type inita9lh, %function
+inita9lh:
 
-    @ Give read/write access to all the memory regions
+   @ Give read/write access to all the memory regions
     ldr r5, =0x33333333
     mcr p15, 0, r5, c5, c0, 2 @ write data access
     mcr p15, 0, r5, c5, c0, 3 @ write instruction access
@@ -28,7 +27,5 @@ _start:
     mov r1, #0x340
     str r1, [r0]
 
-    bl main
 
-.die:
-    b .die
+    bx lr

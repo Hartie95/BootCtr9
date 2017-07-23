@@ -11,6 +11,7 @@
 #define RGB(r,g,b) (r<<24|b<<16|g<<8|r)
 
 extern int current_y;
+extern u8 *top_screen, *top_screen2, *bottom_screen;
 
 void ClearScreen(unsigned char *screen, int color);
 void clearScreens();
@@ -21,3 +22,9 @@ void DrawStringF(int x, int y, const char *format, ...);
 void DrawHexWithName(unsigned char *screen, const char *str, unsigned int hex, int x, int y, int color, int bgcolor);
 
 void drawDebug(const char *format, ...);
+
+struct fb {
+     u8 *top_left;
+     u8 *top_right;
+     u8 *bottom;
+};

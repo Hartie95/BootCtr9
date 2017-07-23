@@ -19,6 +19,8 @@ typedef struct {
     bool screenLog;
     unsigned int screenEnabled;
     unsigned int screenBrightness;
+    unsigned int deviceID;
+    char  CTCertPath[64];
 } loaderConfiguration;
 
 typedef struct {
@@ -33,6 +35,7 @@ typedef struct {
     unsigned int screenEnabled;
     unsigned int screenBrightness;
     unsigned int fixArm9Path;
+    char keysPath[64];
 } configuration;
 
 

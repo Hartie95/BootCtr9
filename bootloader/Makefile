@@ -18,9 +18,9 @@ include $(DEVKITARM)/3ds_rules
 #---------------------------------------------------------------------------------
 export TARGET		:=	$(shell basename $(CURDIR))
 BUILD		:=	build
-SOURCES		:=	source ../libs/fatfs source/inih ../libs/i2c ../libs/quicklz ../libs/fatfs/sdmmc
+SOURCES		:=	source ../libs/fatfs source/inih ../libs/i2c ../libs/quicklz ../libs/fatfs/sdmmc ../libs/cache ../libs/jsmn
 DATA		:=	data
-INCLUDES	:=	include ../libs/fatfs source/inih ../libs/i2c ../libs/quicklz ../libs/fatfs/sdmmc
+INCLUDES	:=	include ../libs/fatfs source/inih ../libs/i2c ../libs/quicklz ../libs/fatfs/sdmmc ../libs/cache ../libs/jsmn ../libs/firm/ 
 
 #---------------------------------------------------------------------------------
 # Setup some defines
@@ -104,11 +104,13 @@ all: $(BUILD) bootloaderLoader
 $(BUILD):
 	@[ -d $@ ] || mkdir -p $@
 	@make --no-print-directory -C $(BUILD) -f $(CURDIR)/Makefile
+	@firmtool build $(OUTPUT).firm -n 0x24F00000 -e 0x1FFF4000 -D $(OUTPUT).bin data/arm11bg.bin -A 0x24F00000 0x1FFF4000 -C NDMA XDMA -i
 	mv $(OUTPUT).bin arm9bootloader.bin
+	mv $(OUTPUT).firm boot.firm
 
 bootloaderLoader:
 	@[ -d bootloaderloader/data ] || mkdir -p bootloaderloader/data
-	@cp arm9bootloader.bin bootloaderloader/data/arm9bootloader.bin
+	@cp boot.firm bootloaderloader/data/BootCTR9.firm
 	@echo make BOOTLOADERLOADER
 	@cd bootloaderloader && make
 	@cp bootloaderloader/arm9loaderhax.bin arm9loaderhax.bin

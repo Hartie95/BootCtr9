@@ -4,6 +4,9 @@
 #include "screen.h"
 #include "draw.h"
 #include "hid.h"
+#include "jsmn.h"
+#include "aes.h"
+#include "convert.h"
 
 /* File Helpers */
 
@@ -183,3 +186,118 @@ bool checkPassword(char* bootPassword)
 	return true;
 }
 
+/* experimental area */
+
+#define ITCM 0x01FF8000
+#define CTR_UNITINFO 0x10010010
+#define TWL_UNITINFO 0x10010014
+
+/* not yet working */
+void copyDeviceID(u32 deviceID){
+	if(deviceID!=0){
+		*(u32*)(ITCM+0x3804)=deviceID;
+		debug("wrote deviceID %x\n result: %x", deviceID, *(u32*)(ITCM+0x3804));
+	}
+}
+
+/* not yet working */
+void loadCTCert(char* path){
+	FIL CTCertFile;
+	UINT br =0;
+
+	if(!strlen(path)){
+		return;
+	}
+
+	if(f_open(&CTCertFile, path, FA_READ | FA_OPEN_EXISTING) != FR_OK){
+		info("unable to open CTCert file %s", path);
+		return;
+	}
+	f_read(&CTCertFile, (void*)(ITCM+0x3818), 0x68, &br);
+	f_close(&CTCertFile);
+	debug("wrote CTCert %s, br: %i",path, br);
+
+}
+
+/* not yet working */
+void setUnitInfo(){
+	*(u32*)(CTR_UNITINFO)=1;
+	debug("Unitinfo: %x",*(u32*)(CTR_UNITINFO));
+}
+
+/** reads a json containing keys in the following format
+* {
+*	[keyslotType][keyslot]: [key as hexstring]
+* }
+*
+*/
+void setupKeys(char* path)
+{
+	jsmn_parser p;
+	jsmntok_t t[64];
+	FIL keyFile;
+	char jsonString[8096]={0};
+	char key[16]={0};
+	u32 i;
+	u32 x;
+	UINT br;
+
+	if(!strlen(path)){
+		return;
+	}
+    if(f_open(&keyFile, path, FA_READ | FA_OPEN_EXISTING) != FR_OK) {
+       debug("Unable to open keys file");
+       return;
+    }
+
+
+	f_read(&keyFile, (void*)jsonString, 0x1024, &br);
+	f_close(&keyFile);
+
+	jsmn_init(&p);
+
+	u32  results = jsmn_parse(&p, jsonString, strlen(jsonString), t, sizeof(t)/sizeof(t[0]));
+	if (results < 0) {
+		debug("Failed to parse JSON: %d", results);
+		return;
+	}
+
+	if (results < 1 || t[0].type != JSMN_OBJECT) {
+		debug("Object expected");
+		return;
+	}
+
+	for (i = 1; i < results; i+=2) {
+		char keyType = *(jsonString+t[i].start);
+		char* pEnd;
+		int keyslot=strtol((char*)jsonString+t[i].start+1, &pEnd,16);
+		if(keyslot<1)
+		{
+			continue;
+		}
+
+		for(x=0;x<16;x++)
+		{
+			char tmp[3]={0};
+			sprintf((char*)&tmp, "%.2s", (char*)jsonString+t[i+1].start+x*2);
+			key[x]=htoi(tmp);
+		}
+
+		switch(keyType)
+		{
+			case 'x':
+			case 'X':
+				setup_aeskeyX(keyslot,key);
+				break;
+			case 'y':
+			case 'Y':
+				setup_aeskeyY(keyslot,key);
+				break;
+
+			case 'n':
+			case 'N':
+				setup_aeskey(keyslot,key);
+				break;
+		}
+	}
+}
